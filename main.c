@@ -1,13 +1,30 @@
 #include "./raylib/include/raylib.h"
 #include "cpm.h"
+#include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
 #define PIPE_READ 0
 #define PIPE_WRITE 1
 
-int main(void) {
+typedef struct Video {
+  const char *filepath;
+  size_t total_frames;
+  int width;
+  int height;
+  int pixel_fmt;
+} Video;
+
+Video LoadVideo(const char *filepath) {
+  Video res = {0};
+  res.filepath = filepath;
+
+  return res;
+}
+
+void frame_extract(Video *vid) {
   int vw = 1600;
   int vh = 800;
+  const char *res = "1600x800";
   int framesize = vw * vh;
   unsigned char *buff = malloc(framesize);
 
@@ -19,29 +36,24 @@ int main(void) {
     close(pipefd[PIPE_WRITE]);
     Cmd cmd = {0};
     cpm_cmd_append(&cmd, "ffmpeg");
-    cpm_cmd_append(&cmd, "-i", "lagtrain.mp4", "-f", "rawvideo", "-pix_fmt",
-                   "gray", "-s", "1600x800", "-");
+    cpm_cmd_append(&cmd, "-i", vid->filepath, "-f", "rawvideo", "-pix_fmt",
+                   "gray", "-s", res, "-");
     cpm_cmd_exec(cmd);
   } else {
     FILE *pipestrm = fdopen(pipefd[PIPE_READ], "rb");
     if (!pipestrm) {
       perror("fdopen");
-      return 1;
+      exit(1);
     }
-    InitWindow(vw, vh, "til");
-    SetTargetFPS(24);
-    while (fread(buff, 1, framesize, pipestrm) == framesize &&
-           !WindowShouldClose()) {
-      BeginDrawing();
+    while (fread(buff, 1, framesize, pipestrm) == framesize) {
       Image tis = {.width = vw,
                    .height = vh,
                    .data = buff,
                    .format = PIXELFORMAT_UNCOMPRESSED_GRAYSCALE,
                    .mipmaps = 1};
       Texture2D tas = LoadTextureFromImage(tis);
-      DrawTexture(tas, 0, 0, WHITE);
-      EndDrawing();
     }
-    CloseWindow();
   }
 }
+
+int main(void) {}
